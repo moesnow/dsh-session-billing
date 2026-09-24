@@ -1,0 +1,5 @@
+# 本地维护文档，不发布到 GitHub
+AGENTS.md
+
+node_modules/
+*.log

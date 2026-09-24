@@ -1,0 +1,4 @@
+- insert:
+    - id: session-billing
+      name: 'dsh-session-billing'
+      config: {}

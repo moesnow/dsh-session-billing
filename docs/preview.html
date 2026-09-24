@@ -1,0 +1,235 @@
+<!doctype html>
+<!-- README 截图用的本地预览页（不进包）：插件真实 CSS + 仿造 DOM。
+     用法：preview.html?lang=zh|en&scene=session|turn，Edge 无头截图见 AGENTS §11。 -->
+<html>
+<head>
+<meta charset="utf-8">
+<title>session-billing preview</title>
+<style>
+  :root {
+    --dsw-specific-menu: #ffffff;
+    --dsw-alias-label-primary: #1c1c1e;
+    --dsw-alias-label-secondary: rgba(60, 60, 67, 0.72);
+    --dsw-alias-label-tertiary: rgba(60, 60, 67, 0.45);
+    --dsw-alias-border-l1: rgba(0, 0, 0, 0.10);
+    --dsw-alias-border-l2: rgba(0, 0, 0, 0.07);
+    --dsw-alias-interactive-bg-hover: rgba(0, 0, 0, 0.05);
+    --dsw-elevation-stroke-color: rgba(0, 0, 0, 0.08);
+    --dsw-elevation-prominent: 0 12px 40px rgba(0, 0, 0, 0.18);
+    --dsw-menu-backdrop-filter: blur(20px);
+    --dsh-content-font-size-secondary: 13px;
+    --dsh-content-font-delta-secondary: 0px;
+    --dsh-content-font-delta: 0px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; height: 100vh; overflow: hidden;
+    background: #eef0f4; color: var(--dsw-alias-label-primary);
+    font-family: 'Segoe UI', system-ui, 'Microsoft YaHei', sans-serif;
+  }
+  .win { position: relative; height: 100vh; overflow: hidden; background: #f7f8fa; }
+  .titlebar { height: 36px; display: flex; align-items: center; gap: 7px; padding: 0 14px;
+    background: #fff; border-bottom: 1px solid rgba(0, 0, 0, 0.06); }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .bubble { background: #fff; border: 1px solid rgba(0, 0, 0, 0.06); border-radius: 12px; padding: 14px 16px; width: 460px; }
+  .bar { height: 9px; border-radius: 5px; background: rgba(0, 0, 0, 0.08); margin: 8px 0; }
+  .composer { position: absolute; left: 50%; transform: translateX(-50%); bottom: 64px;
+    width: 620px; height: 84px; background: #fff; border: 1px solid rgba(0, 0, 0, 0.09);
+    border-radius: 20px; padding: 18px 20px; }
+  .dock { position: absolute; left: 50%; transform: translateX(-50%); bottom: 18px; display: flex; justify-content: center; }
+  .endInfo { display: inline-flex; align-items: center; gap: 8px; }
+
+  /* ===== 官方「本轮用量」胶囊的仿造（度量取自 AGENTS §8） ===== */
+  .Q51KRG_root { display: inline-flex; }
+  .Q51KRG_trigger {
+    height: 28px; border-radius: 28px; padding: 6px 8px; display: inline-flex; align-items: center; gap: 4px;
+    font-family: inherit; font-size: calc(var(--dsh-content-font-size-secondary, 13px) - 1px);
+    color: var(--dsw-alias-label-tertiary); background: 0 0; border: none; white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ===== 插件真实 CSS（与 client.js 一致） ===== */
+  .sessionBilling_anchor { min-width: 0; display: inline-flex; }
+  .sessionBilling_pill { box-sizing: border-box; max-width: 100%; color: var(--dsw-alias-label-secondary);
+    font: inherit; font-variant-numeric: tabular-nums; white-space: nowrap; background: 0 0; border: none;
+    border-radius: 24px; align-items: center; gap: 6px; padding: 1px 8px; display: inline-flex;
+    font-size: calc(var(--dsh-content-font-size-secondary, 13px) - 1px); }
+  .sessionBilling_pill svg { flex: none; width: 14px; height: 14px; }
+  .sessionBilling_panel { position: absolute; box-sizing: border-box; width: 300px; max-width: 440px;
+    max-height: calc(100vh - 24px); overflow-y: auto; background: var(--dsw-specific-menu);
+    color: var(--dsw-alias-label-secondary); backdrop-filter: var(--dsw-menu-backdrop-filter);
+    --dsw-elevation-stroke-color: var(--dsw-alias-border-l1);
+    box-shadow: var(--dsw-elevation-prominent); border: 0; border-radius: 12px; padding: 16px;
+    font-size: 12px; line-height: 18px; cursor: default; }
+  .sessionBilling_title { display: flex; align-items: center; gap: 8px; font-weight: 500;
+    color: var(--dsw-alias-label-primary); margin-bottom: 8px; }
+  .sessionBilling_title svg { width: 16px; height: 16px; flex: none; }
+  .sessionBilling_titleSpacer { flex: 1; }
+  .sessionBilling_titleValue { font-variant-numeric: tabular-nums; }
+  .sessionBilling_rule { height: 0; border-top: 0.5px solid var(--dsw-alias-border-l2); margin-bottom: 10px; }
+  .sessionBilling_model { margin: 10px 0 0; }
+  .sessionBilling_modelHead { display: flex; align-items: baseline; gap: 8px; }
+  .sessionBilling_modelName { font-weight: 600; color: var(--dsw-alias-label-primary);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .sessionBilling_badge { font-size: 11px; color: var(--dsw-alias-label-tertiary);
+    border: 1px solid var(--dsw-alias-border-l2); border-radius: 6px; padding: 0 5px; white-space: nowrap; }
+  .sessionBilling_modelSpacer { flex: 1; }
+  .sessionBilling_modelCost { color: var(--dsw-alias-label-primary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .sessionBilling_meta { color: var(--dsw-alias-label-tertiary); font-size: 11px; margin-top: 3px; }
+  .sessionBilling_note { color: var(--dsw-alias-label-tertiary); font-size: 11px; line-height: 16px; margin-top: 2px; }
+  .sessionBilling_notes { color: var(--dsw-alias-label-tertiary); font-size: 11px; line-height: 16px;
+    margin-top: 12px; display: flex; flex-direction: column; gap: 4px; }
+  .sessionBilling_turnChip { box-sizing: border-box; height: 28px; color: var(--dsw-alias-label-tertiary);
+    font-family: inherit; font-size: calc(var(--dsh-content-font-size-secondary, 13px) - 1px);
+    font-variant-numeric: tabular-nums; white-space: nowrap; cursor: pointer; background: 0 0; border: none;
+    border-radius: 28px; align-items: center; gap: 4px; padding: 6px 8px; display: inline-flex;
+    background: var(--dsw-alias-interactive-bg-hover); }
+  .sessionBilling_turnChip svg { flex: none; width: 14px; height: 14px; }
+</style>
+</head>
+<body>
+
+<!-- ================ 场景 1：dock 胶囊 + 会话费用弹窗 ================ -->
+<div class="win" id="scene-session">
+  <div class="titlebar">
+    <span class="dot" style="background:#ff5f57"></span>
+    <span class="dot" style="background:#febc2e"></span>
+    <span class="dot" style="background:#28c840"></span>
+  </div>
+  <div class="bubble" style="margin:28px 0 0 36px">
+    <div class="bar" style="width:92%"></div>
+    <div class="bar" style="width:76%"></div>
+    <div class="bar" style="width:54%"></div>
+  </div>
+  <div class="composer"><div class="bar" style="width:46%;margin-top:6px"></div></div>
+  <div class="dock">
+    <span class="sessionBilling_anchor">
+      <button class="sessionBilling_pill" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="14" height="14"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M11 3.5H20v9l-8.5 8.5a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8z"/>
+          <circle cx="16.5" cy="7.5" r="1.3"/>
+        </svg>
+        <span>¥4.28</span>
+      </button>
+    </span>
+  </div>
+  <div class="sessionBilling_panel" style="left:270px;bottom:158px">
+    <div class="sessionBilling_title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="16" height="16"
+        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M11 3.5H20v9l-8.5 8.5a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8z"/>
+        <circle cx="16.5" cy="7.5" r="1.3"/>
+      </svg>
+      <span data-i18n="title"></span>
+      <span class="sessionBilling_titleSpacer"></span>
+      <span class="sessionBilling_titleValue">¥4.28</span>
+    </div>
+    <div class="sessionBilling_rule"></div>
+    <div class="sessionBilling_notes" style="margin-top:0" data-i18n="byModel"></div>
+    <div class="sessionBilling_model">
+      <div class="sessionBilling_modelHead">
+        <span class="sessionBilling_modelName">DeepSeek V4 Pro</span>
+        <span class="sessionBilling_badge" data-i18n="badgePeakIdle"></span>
+        <span class="sessionBilling_modelSpacer"></span>
+        <span class="sessionBilling_modelCost">¥3.94</span>
+      </div>
+      <div class="sessionBilling_meta" data-i18n="calls" data-param="3"></div>
+      <div class="sessionBilling_note" data-i18n="noteDeepseek"></div>
+    </div>
+    <div class="sessionBilling_model">
+      <div class="sessionBilling_modelHead">
+        <span class="sessionBilling_modelName">MiMo v2.6 Pro</span>
+        <span class="sessionBilling_modelSpacer"></span>
+        <span class="sessionBilling_modelCost">¥0.3425</span>
+      </div>
+      <div class="sessionBilling_meta" data-i18n="calls" data-param="2"></div>
+      <div class="sessionBilling_note" data-i18n="noteMimo"></div>
+    </div>
+    <div class="sessionBilling_notes"><span data-i18n="estimate"></span></div>
+  </div>
+</div>
+
+<!-- ================ 场景 2：每轮费用贴片 + 本轮费用弹窗 ================ -->
+<div class="win" id="scene-turn" style="display:none">
+  <div class="titlebar">
+    <span class="dot" style="background:#ff5f57"></span>
+    <span class="dot" style="background:#febc2e"></span>
+    <span class="dot" style="background:#28c840"></span>
+  </div>
+  <div class="bubble" style="margin:120px 0 0 36px">
+    <div class="bar" style="width:94%"></div>
+    <div class="bar" style="width:82%"></div>
+    <div class="bar" style="width:60%"></div>
+  </div>
+  <div class="endInfo" style="margin:10px 0 0 36px">
+    <span class="Q51KRG_root"><button class="Q51KRG_trigger" type="button" data-i18n="usagePill"></button></span>
+    <button class="sessionBilling_turnChip" type="button" aria-haspopup="dialog" aria-expanded="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="14" height="14"
+        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M11 3.5H20v9l-8.5 8.5a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8z"/>
+        <circle cx="16.5" cy="7.5" r="1.3"/>
+      </svg>
+      <span>¥0.0821</span>
+    </button>
+    <span style="font-size:12px;color:var(--dsw-alias-label-tertiary)">14:32</span>
+  </div>
+  <div class="sessionBilling_panel" style="left:150px;bottom:197px">
+    <div class="sessionBilling_title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="16" height="16"
+        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M11 3.5H20v9l-8.5 8.5a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8z"/>
+        <circle cx="16.5" cy="7.5" r="1.3"/>
+      </svg>
+      <span data-i18n="turnTitle"></span>
+      <span class="sessionBilling_titleSpacer"></span>
+      <span class="sessionBilling_titleValue">¥0.0821</span>
+    </div>
+    <div class="sessionBilling_rule"></div>
+    <div class="sessionBilling_notes" style="margin-top:0" data-i18n="byModel"></div>
+    <div class="sessionBilling_model">
+      <div class="sessionBilling_modelHead">
+        <span class="sessionBilling_modelName">MiMo v2.6 Pro</span>
+        <span class="sessionBilling_modelSpacer"></span>
+        <span class="sessionBilling_modelCost">¥0.0821</span>
+      </div>
+      <div class="sessionBilling_meta" data-i18n="calls" data-param="1"></div>
+      <div class="sessionBilling_note" data-i18n="noteMimo"></div>
+    </div>
+    <div class="sessionBilling_notes"><span data-i18n="estimate"></span></div>
+  </div>
+</div>
+
+<script>
+  // 与 client.js 的 DICT / models.config.js 的 note 文案保持一致（截图用）。
+  var T = {
+    zh: {
+      title: '会话费用', turnTitle: '本轮费用', byModel: '按模型', estimate: '费用为按官方价目表的估算值。',
+      badgePeakIdle: '峰谷', calls: '{n} 次调用', usagePill: '用量 24.7k tok',
+      noteDeepseek: '按北京时间峰谷计价：工作日 9:00-12:00、14:00-18:00 为高峰价，其余时段（夜间、周末及法定节假日）为空闲半价。节假日依据 holiday-cn 日历。',
+      noteMimo: '全天一口价（无峰谷）；缓存写入限时免费，按 0 计。'
+    },
+    en: {
+      title: 'Session cost', turnTitle: 'Turn cost', byModel: 'By model', estimate: 'Cost is an estimate from the published price sheets.',
+      badgePeakIdle: 'peak/idle', calls: '{n} calls', usagePill: '24.7k tok',
+      noteDeepseek: 'Priced by Beijing peak/idle: peak is weekdays 09:00-12:00 & 14:00-18:00; nights, weekends and statutory holidays are idle at half price (holiday calendar from holiday-cn).',
+      noteMimo: 'Flat price all day (no peak/idle); cache write is free for now, billed at 0.'
+    }
+  };
+  var q = new URLSearchParams(location.search);
+  var lang = T[q.get('lang')] ? q.get('lang') : 'zh';
+  var scene = q.get('scene') === 'turn' ? 'turn' : 'session';
+  document.getElementById('scene-session').style.display = scene === 'session' ? '' : 'none';
+  document.getElementById('scene-turn').style.display = scene === 'turn' ? '' : 'none';
+  var dict = T[lang];
+  var nodes = document.querySelectorAll('[data-i18n]');
+  for (var i = 0; i < nodes.length; i += 1) {
+    var key = nodes[i].getAttribute('data-i18n');
+    var text = dict[key] || key;
+    var n = nodes[i].getAttribute('data-param');
+    if (n !== null) text = text.replace('{n}', n);
+    nodes[i].textContent = text;
+  }
+</script>
+</body>
+</html>

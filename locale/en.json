@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Session Billing",
+    "description": "Shows this session's estimated LLM cost from provider-reported usage: uncached input, cache read, cache write, and output, priced per model (DeepSeek and Xiaomi MiMo pay-as-you-go)."
+  }
+}
