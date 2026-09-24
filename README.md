@@ -24,7 +24,8 @@ DeepSeek Harness Web UI 的**会话级 LLM 费用估算**插件：把模型上�
 ## 📦 安装
 
 1. 在 Plugin Manager 中用 **Install Bundle** 安装本包目录（`dsh-session-billing`）。
-2. 安装或更新后**重启 Harness**（Host 侧改动不热更），浏览器**刷新页面**。
+2. 或从 npm 安装：Install Bundle 的安装规格填 `dsh-session-billing`（发布到 npm 后可用）。
+3. 安装或更新后**重启 Harness**（Host 侧改动不热更），浏览器**刷新页面**。
 
 ## 💰 计费口径
 

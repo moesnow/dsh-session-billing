@@ -1,0 +1,63 @@
+# 发布到 npm：push 形如 v1.2.3 的 tag 触发。
+#
+# 认证走 npm Trusted Publishing（OIDC，零长期 token，自动附 provenance 来源证明）。
+# 需在 npmjs.com 包设置里一次性配置（字段区分大小写、必须精确）：
+#   Packages → dsh-session-billing → Settings → Trusted Publisher
+#     Provider:            GitHub Actions
+#     Organization or user: moesnow
+#     Repository:          dsh-session-billing
+#     Workflow filename:   npm-publish.yml   （只写文件名，含 .yml）
+#     Allowed actions:     必须勾选 "npm publish"
+#                          （2026-09 起新配置默认只允许 npm stage publish！）
+# 首个版本（包还不存在时无法配置 Trusted Publisher）需按 AGENTS §10 做一次性首发。
+name: npm publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  id-token: write # OIDC 必需，供 npm 交换短期发布凭证
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - name: Syntax check
+        run: node --check index.js && node --check client.js && node --check models.config.js
+
+      - name: Pricing assertions
+        run: node docs/verify-host.mjs
+
+      - name: Tag must match package.json version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          V=$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).version")
+          if [ "v$V" != "$TAG" ]; then echo "tag $TAG != package.json v$V"; exit 1; fi
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false # 发布构建不使用缓存
+
+      # 零依赖、无构建步骤，直接发布；无需 npm install。
+      # Trusted Publishing（OIDC）+ 公开仓库 + 公开包 = npm 自动生成 provenance。
+      - name: Publish to npm
+        run: npm publish

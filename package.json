@@ -1,11 +1,18 @@
 {
   "name": "dsh-session-billing",
   "version": "1.0.0",
-  "private": true,
   "description": "Per-session LLM cost meter for the DeepSeek Harness Web UI: folds provider usage into uncached input / cache read / cache write / output per model and prices it against DeepSeek and Xiaomi MiMo pay-as-you-go rates (DeepSeek peak-idle tiering included).",
   "keywords": ["dsh", "dsh-plugin", "deepseek-harness", "billing", "cost", "tokens", "cordis"],
   "type": "module",
-  "main": "lib/index.js",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/moesnow/dsh-session-billing.git"
+  },
+  "homepage": "https://github.com/moesnow/dsh-session-billing#readme",
+  "bugs": {
+    "url": "https://github.com/moesnow/dsh-session-billing/issues"
+  },
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",

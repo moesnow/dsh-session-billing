@@ -24,7 +24,8 @@ Costs are **estimates** (published price sheets × reported usage), not billing 
 ## 📦 Install
 
 1. Install this package directory (`dsh-session-billing`) with **Install Bundle** in the Plugin Manager.
-2. **Restart the Harness** after installing or updating (Host-side changes are not hot-reloaded), then **refresh the page**.
+2. Or install from npm: use `dsh-session-billing` as the Install Bundle spec (once published to npm).
+3. **Restart the Harness** after installing or updating (Host-side changes are not hot-reloaded), then **refresh the page**.
 
 ## 💰 Billing semantics
 
