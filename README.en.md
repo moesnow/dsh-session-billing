@@ -2,6 +2,10 @@
 
 > 🌐 [简体中文](README.md) | **English**
 
+[![npm version](https://img.shields.io/npm/v/dsh-session-billing)](https://www.npmjs.com/package/dsh-session-billing)
+[![npm downloads](https://img.shields.io/npm/dm/dsh-session-billing)](https://www.npmjs.com/package/dsh-session-billing)
+[![license](https://img.shields.io/npm/l/dsh-session-billing)](LICENSE)
+
 A **per-session LLM cost estimator** for the DeepSeek Harness Web UI: it accumulates provider-reported usage into four disjoint buckets (uncached input / cache read / cache write / output), prices them against the official pay-as-you-go sheets, and shows the **session total** under the composer plus the **cost of each turn** next to every reply — each opening into a per-model breakdown.
 
 Costs are **estimates** (published price sheets × reported usage), not billing truth. A pure display plugin: no behaviour changes, no session writes, no network requests.
@@ -23,9 +27,12 @@ Costs are **estimates** (published price sheets × reported usage), not billing 
 
 ## 📦 Install
 
-1. Install this package directory (`dsh-session-billing`) with **Install Bundle** in the Plugin Manager.
-2. Or install from npm: use `dsh-session-billing` as the Install Bundle spec (once published to npm).
-3. **Restart the Harness** after installing or updating (Host-side changes are not hot-reloaded), then **refresh the page**.
+Install with **Install Bundle** in the Plugin Manager, from either source:
+
+1. **npm package (recommended)**: use [`dsh-session-billing`](https://www.npmjs.com/package/dsh-session-billing) as the install spec;
+2. **This repository**: install a local clone of the repo directory directly.
+
+**Restart the Harness** after installing or updating (Host-side changes are not hot-reloaded), then **refresh the page**.
 
 ## 💰 Billing semantics
 

@@ -2,6 +2,10 @@
 
 > 🌐 **中文** | [English](README.en.md)
 
+[![npm version](https://img.shields.io/npm/v/dsh-session-billing)](https://www.npmjs.com/package/dsh-session-billing)
+[![npm downloads](https://img.shields.io/npm/dm/dsh-session-billing)](https://www.npmjs.com/package/dsh-session-billing)
+[![license](https://img.shields.io/npm/l/dsh-session-billing)](LICENSE)
+
 DeepSeek Harness Web UI 的**会话级 LLM 费用估算**插件：把模型上报的用量按「未缓存输入 / 缓存读取 / 缓存写入 / 输出」四桶累计，套官方价目表估算费用——输入框下方看**会话合计**，每条回复旁看**本轮花费**，点开都有按模型明细。
 
 费用是**估算值**（官方价目表 × 上报用量），不是账单真值。纯展示插件：不改行为、不写会话、不发网络请求。
@@ -23,9 +27,12 @@ DeepSeek Harness Web UI 的**会话级 LLM 费用估算**插件：把模型上�
 
 ## 📦 安装
 
-1. 在 Plugin Manager 中用 **Install Bundle** 安装本包目录（`dsh-session-billing`）。
-2. 或从 npm 安装：Install Bundle 的安装规格填 `dsh-session-billing`（发布到 npm 后可用）。
-3. 安装或更新后**重启 Harness**（Host 侧改动不热更），浏览器**刷新页面**。
+在 Plugin Manager 中用 **Install Bundle** 安装，来源二选一：
+
+1. **npm 包（推荐）**：安装规格填 [`dsh-session-billing`](https://www.npmjs.com/package/dsh-session-billing)；
+2. **本仓库目录**：直接安装本地克隆的仓库目录。
+
+安装或更新后**重启 Harness**（Host 侧改动不热更），浏览器**刷新页面**。
 
 ## 💰 计费口径
 
