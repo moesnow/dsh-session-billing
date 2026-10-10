@@ -43,17 +43,61 @@ window.__ModuleLoader__.load({
       }
     };
 
-    // locale 服务面，apply() 里探测；缺失时退回 navigator.language 本地查表。
+    // locale 服务面。它由 locale 插件 provide，而那个插件的 apply() 是 async 的
+    // （先 await 原生引导桥，再 provide），所以它到位的时间与本文本插件无先后
+    // 保证。因此绝不能在 apply() 里同步探测：那一秒它还没 provide，ctx.get()
+    // 返回 undefined，「软依赖」就会被误判成「服务不存在」，从此固定走英文兜底
+    // （桌面渲染进程是 --lang=en-US），而且不报错、切换语言也救不回来。
+    // 正确做法见下面 apply() 里的 ctx.inject(['locale'], …) 等待型子 fiber。
     var localeFace = null;
+    // 自己的 revision 计数器与监听表。face 可能是「后到」的：它到位时组件早已
+    // 挂载，靠 face 自己的 subscribe 无法把变更送达那些订阅（uSES 的 subscribe
+    // 引用是模块级常量，不会重订），所以这里自持一份计数器，face 的每次变化都
+    // 镜像进来，getSnapshot() 一变化React 就重渲染。
+    var localeRevisionValue = 0;
+    var localeListeners = new Set();
+
+    function notifyLocale() {
+      localeRevisionValue += 1;
+      for (var fn of [...localeListeners]) { try { fn(); } catch (_) {} }
+    }
 
     /** 当前语言 id（小写 BCP 47，如 zh-cn / en-us）。 */
     function activeLocaleId() {
       if (localeFace) {
-        try { return String(localeFace.getLocale().active || 'en').toLowerCase(); } catch (_) {}
+        try {
+          var id = String(localeFace.getLocale().active || '');
+          if (id) return id.toLowerCase();
+        } catch (_) {}
+      }
+      return navigatorLang();
+    }
+    function activeLang() { return primaryLang(activeLocaleId()); }
+
+    /**
+     * 兜底查表用的浏览器语言：navigator.languages 优先于 language。桌面版渲染进程
+     * 被 Electron 以 --lang=en-US 拉起，navigator.language 恒为 en，而 languages
+     * 里仍保留用户语言的其余条目（例如 [...,'zh-Hans-CN']），只看 language 会漏掉
+     * 真正的中文偏好，于是整个界面退回英文。这解释了「系统语言中文、界面却英文」。
+     */
+    function navigatorLang() {
+      var langs;
+      try { langs = navigator && navigator.languages; } catch (_) { langs = null; }
+      if (langs && typeof langs.length === 'number' && langs.length > 0) {
+        for (var i = 0; i < langs.length; i += 1) {
+          var tag = String(langs[i] || '').toLowerCase();
+          if (tag.split('-')[0] === 'zh') return 'zh';
+        }
+        return String(langs[0] || 'en').toLowerCase();
       }
       return String((typeof navigator !== 'undefined' && navigator.language) || 'en').toLowerCase();
     }
-    function activeLang() { return activeLocaleId().split('-')[0]; }
+
+    /** 语言 id 的主子标签（zh-cn → zh），只认本项目支持的两种界面语言。 */
+    function primaryLang(id) {
+      var tag = String(id || '').toLowerCase().split('-')[0];
+      return tag === 'zh' ? 'zh' : 'en';
+    }
 
     function interpolate(str, params) {
       return String(str).replace(/\{(\w+)\}/g, function (all, key) {
@@ -63,7 +107,8 @@ window.__ModuleLoader__.load({
 
     /** 本地查表版翻译（locale 服务缺失时的兜底）。 */
     function localT(key, params) {
-      var dict = DICT[activeLang()] || DICT.en;
+      var lang = activeLang();
+      var dict = DICT[lang] || DICT.en;
       var s = dict[key];
       if (s === undefined) s = DICT.en[key];
       if (s === undefined) return key;
@@ -84,12 +129,15 @@ window.__ModuleLoader__.load({
     // apply() 里优先换成 locale 服务的 bind(ns)（调用时读当前语言，引用稳定）。
     var t = localT;
 
+    // 订阅走自持的监听表：face 可能是模块加载完成后才到位的（locale 插件的
+    // apply() 是 async），等它到位时组件早已挂载，用 face 自己的 subscribe 无法
+    // 把「face 已到达」送达已经订阅的 uSES（它的 subscribe 引用是常量，不会重订）。
+    // 因此这里订阅的是本地表，face 的每次变化都经 notifyLocale() 镜像进来。
     function subscribeLocale(fn) {
-      return localeFace ? localeFace.subscribe(fn) : function () {};
+      localeListeners.add(fn);
+      return function () { localeListeners.delete(fn); };
     }
-    function localeRevision() {
-      return localeFace ? localeFace.getSnapshot().revision : 0;
-    }
+    function localeRevision() { return localeRevisionValue; }
     // 语言/字典变化时的重渲染信号（usES 可用则用之，旧 React 退回订阅计数）。
     var useLocaleRevision = typeof React.useSyncExternalStore === 'function'
       ? function () { return React.useSyncExternalStore(subscribeLocale, localeRevision); }
@@ -550,37 +598,69 @@ window.__ModuleLoader__.load({
       );
     }
 
+    /**
+     * 把 locale face 接上：换成它的 bind(ns)、注册字典、订阅它的变化。
+     * face 通过 ctx.inject(['locale'], …) 到位后才调用，所以这里一定能拿到。
+     * @param face - locale 服务的 face（register / bind / subscribe / getSnapshot）。
+     * @returns 卸载时执行的清理。
+     */
+    function adoptLocaleFace(face) {
+      if (localeFace === face) return function () {};
+      localeFace = face;
+      var disposers = [];
+      ['en', 'zh'].forEach(function (lang) {
+        // 重复注册（同 ns+locale 单属主）会抛——热重载重跑时旧字典往往还在，
+        // 照常 bind 即可；真正的缺典表现为界面出现 key 本身。
+        try { disposers.push(face.register(NS, lang, DICT[lang])); } catch (_) {}
+      });
+      try { t = face.bind(NS) || t; } catch (_) {}
+      // face 的变化是「翻译函数本身也要换」的信号：bind(ns) 在调用时读当前语言，
+      // 引用稳定，所以这里只需触发重渲染，让所有 t(...) 调用点重新求值。
+      var un = face.subscribe(function () { notifyLocale(); });
+      notifyLocale();
+      return function () {
+        try { un && un(); } catch (_) {}
+        for (var i = 0; i < disposers.length; i += 1) {
+          try { disposers[i](); } catch (_) {}
+        }
+        if (localeFace === face) {
+          localeFace = null;
+          t = localT;
+          notifyLocale();
+        }
+      };
+    }
+
     return {
       inject: ['slots'],
       apply(ctx) {
-        // locale 服务是软依赖：拿不到就用内置查表兜底（不因此拒载整个插件）。
-        try {
-          localeFace = (typeof ctx.get === 'function' ? ctx.get('locale') : null) || ctx.locale || null;
-        } catch (_) {
-          localeFace = null;
-        }
-        if (localeFace) {
-          var disposers = [];
-          ['en', 'zh'].forEach(function (lang) {
-            // 重复注册（同 ns+locale 单属主）会抛——热重载重跑时旧字典往往还在，
-            // 照常 bind 即可；真正的缺典表现为界面出现 key 本身。
-            try { disposers.push(localeFace.register(NS, lang, DICT[lang])); } catch (_) {}
+        // locale 服务必须等，不能同步探测：它的提供方（@deepseek-ai/dsh-client-locale）
+        // apply() 是 async 的，先 await 原生引导桥才 ctx.provide('locale')。本文本
+        // 插件与它没有加载顺序保证，同步读只会读到 undefined，然后把「服务还没到」
+        // 误判成「服务不存在」——那之后即使 locale 到位也不会再被采纳，界面固定在
+        // 英文兜底上，且不报错。ctx.inject(['locale'], …) 起一个等待型子 fiber：
+        // 依赖齐了才跑，依赖消失（卸载）时子 fiber 自动析构。
+        //
+        // 这也修掉了一个次生 bug：locale 后到意味着所有已挂载组件订阅的是它自己的
+        // subscribe，永远收不到「face 已到达」的通知。现在由 adoptLocaleFace() 里的
+        // notifyLocale() 主动推一次，界面立刻刷新成正确语言。
+        if (typeof ctx.inject === 'function') {
+          ctx.inject(['locale'], function (s) {
+            var face = s.locale;
+            if (!face) return;
+            var un = adoptLocaleFace(face);
+            s.effect(function () { return un; }, 'session-billing locale face');
           });
-          try { t = localeFace.bind(NS) || t; } catch (_) {}
-          if (disposers.length > 0 && typeof ctx.effect === 'function') {
-            ctx.effect(function () {
-              return function () {
-                for (var i = 0; i < disposers.length; i += 1) disposers[i]();
-                if (t !== localT) t = localT;
-              };
-            }, 'session-billing locale dictionaries');
-          }
         }
         ctx.slots.inject('conversation.composer.dock', function () {
           return ctx.slots.register({
             name: 'conversation.composer.dock',
             id: 'session-billing',
             order: 7,
+            // 注册进插件自己的 locale 命名空间：slot 机制会据此注入同 ns 的 t，
+            // 并把本 entry 接上 locale face 的 revision 通知（语言切换即重渲染）。
+            // 组件内部仍用闭包里的 t，两者读同一 namespace，结果一致。
+            locale: NS,
             // 列表标签写成 thunk：每次读取时解析，跟随应用语言，无需重注册。
             label: function () { return t('title'); }
           }, CostPill);
